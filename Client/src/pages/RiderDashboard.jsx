@@ -9,7 +9,7 @@ function RiderDashboard() {
     async function fetchUser() {
       try {
         const token = localStorage.getItem("token");
-        // Assuming your backend provides a /profile endpoint to get current user info
+        
         const response = await axios.get("http://localhost:8080/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -57,7 +57,7 @@ function RiderDashboard() {
         <div className="mb-4">
           <span className="font-semibold">Role:</span> {user.role}
         </div>
-        {/* Add more fields if necessary */}
+        
       </div>
     </div>
   );
