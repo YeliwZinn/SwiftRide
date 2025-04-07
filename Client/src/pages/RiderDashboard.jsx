@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import MapView from "./MapView";
 
 function RiderDashboard() {
   const [user, setUser] = useState(null);
@@ -9,13 +10,14 @@ function RiderDashboard() {
     async function fetchUser() {
       try {
         const token = localStorage.getItem("token");
-        
+
         const response = await axios.get("http://localhost:8080/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         setUser(response.data);
+        // console.log("Fetched user data:", response.data);
       } catch (err) {
         console.error("Error fetching user details:", err);
         setError(err.response?.data?.error || "Error fetching user details");
@@ -57,7 +59,14 @@ function RiderDashboard() {
         <div className="mb-4">
           <span className="font-semibold">Role:</span> {user.role}
         </div>
-        
+        <div className="mb-4">
+          <span className="font-semibold">Latitude:</span> {user.latitude}
+        </div>
+        <div className="mb-4">
+          <span className="font-semibold">Longitude:</span> {user.longitude}
+        </div>
+
+        <MapView latitude={user.latitude} longitude={user.longitude} />
       </div>
     </div>
   );

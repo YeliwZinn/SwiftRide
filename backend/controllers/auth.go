@@ -173,9 +173,6 @@ func Login(c *gin.Context) {
 }
 
 func Profile(c *gin.Context) {
-	// Debug: Check if this endpoint is being hit
-	log.Println("Profile endpoint hit")
-
 	userIDValue, exists := c.Get("user_id")
 	if !exists {
 		log.Println("User ID not found in context")
@@ -200,10 +197,20 @@ func Profile(c *gin.Context) {
 	}
 
 	log.Println("User details fetched successfully:", user.Email)
+
+	// Extract coordinates safely
+	var longitude, latitude float64
+	if len(user.Location.Coordinates) == 2 {
+		longitude = user.Location.Coordinates[0]
+		latitude = user.Location.Coordinates[1]
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"name":  user.Name,
-		"email": user.Email,
-		"phone": user.Phone,
-		"role":  user.Role,
+		"name":      user.Name,
+		"email":     user.Email,
+		"phone":     user.Phone,
+		"role":      user.Role,
+		"longitude": longitude,
+		"latitude":  latitude,
 	})
 }

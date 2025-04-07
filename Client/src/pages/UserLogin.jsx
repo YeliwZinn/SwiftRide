@@ -108,7 +108,9 @@ function UserLogin({ setUser }) {
           </button>
         </form>
       </div>
-      <Link to="/signup">Signup</Link>
+      <Link to="/signup" className="mt-10 text-xl font-bold text-teal-600 hover:underline">
+        Signup
+      </Link>
     </div>
   );
 }
