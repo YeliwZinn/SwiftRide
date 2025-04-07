@@ -1,25 +1,27 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
+import { GiAbstract109 } from "react-icons/gi";
 const Home = () => {
   const [showVehicles, setShowVehicles] = useState(false);
 
   const vehicles = [
     {
-      name: "Sedan",
-      img: "https://cdn.pixabay.com/photo/2012/05/29/00/43/car-49278_1280.jpg",
+      name: "Bike",
+      img: "https://cdn.pixabay.com/photo/2018/05/03/23/22/motorcycle-3372805_1280.png",
     },
     {
-      name: "SUV",
-      img: "https://cdn.pixabay.com/photo/2014/07/31/23/10/car-407165_1280.jpg",
+      name: "Car",
+      img: "https://cdn.pixabay.com/photo/2013/07/12/12/45/car-146185_1280.png",
     },
     {
-      name: "Hatchback",
-      img: "https://cdn.pixabay.com/photo/2017/01/06/19/15/smart-1953355_1280.jpg",
+      name: "Premium Car",
+      img: "https://cdn.pixabay.com/photo/2015/09/12/21/31/car-937414_1280.png",
     },
   ];
 
   return (
-    <div className="h-screen w-screen bg-black">
+    <div className="h-screen w-screen bg-black overflow-hidden">
       <div
         className="relative h-full w-full bg-center bg-cover bg-no-repeat 
         bg-[url('https://images.unsplash.com/photo-1681524415449-14c88372eb08?q=80&w=1924&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')]"
@@ -32,19 +34,26 @@ const Home = () => {
           {/* Navbar */}
           <nav className="flex justify-between items-center border-b border-white pb-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white rounded-full" />
-              <span className="text-white text-xl font-semibold">
+              <GiAbstract109 className="text-amber text-3xl bg-white mr-2" />
+              {/* <div className="w-8 h-8 bg-white rounded-full" /> */}
+              <span className="text-white text-2xl font-semibold">
                 SwiftRide
               </span>
             </div>
 
             <div className="flex items-center gap-4">
-              <button className="bg-black text-white px-6 py-2 rounded-full shadow-lg hover:bg-gray-800 transition duration-200 hover:underline">
+              <Link
+                to={"/login"}
+                className="bg-black text-white px-6 py-2 rounded-full shadow-lg hover:bg-gray-800 transition duration-200 hover:underline"
+              >
                 Login
-              </button>
-              <button className="bg-white text-black px-4 py-2 rounded-full shadow-lg hover:bg-gray-400 transition duration-200">
+              </Link>
+              <Link
+                to={"/signup"}
+                className="bg-white text-black px-4 py-2 rounded-full shadow-lg hover:bg-gray-400 transition duration-200"
+              >
                 Sign Up
-              </button>
+              </Link>
             </div>
           </nav>
 
@@ -68,18 +77,20 @@ const Home = () => {
 
             {/* Vehicles Carousel */}
             {showVehicles && (
-              <div className="mt-10 flex justify-center gap-6 flex-wrap">
+              <div className="mt-10 flex justify-center gap-8 flex-wrap">
                 {vehicles.map((vehicle, idx) => (
                   <div
                     key={idx}
-                    className="w-48 bg-white rounded-xl shadow-md p-3 text-center hover:scale-105 transition-transform"
+                    className="w-78 bg-white/30 rounded-xl shadow-md p-3 text-center hover:scale-105 transition-transform"
                   >
                     <img
                       src={vehicle.img}
                       alt={vehicle.name}
-                      className="w-full h-24 object-cover rounded-md mb-2"
+                      className="w-full h-36 object-cover rounded-md mb-2"
                     />
-                    <p className="font-medium text-gray-800">{vehicle.name}</p>
+                    <p className="font-bold text-lg text-gray-800">
+                      {vehicle.name}
+                    </p>
                   </div>
                 ))}
               </div>
