@@ -39,14 +39,16 @@ func RequestRide(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	fmt.Println("✅ Received ride request:", req)
 
 	// Get distance, duration, and fare
 	distance, duration, fare, err := services.GetDistance(req.StartLat, req.StartLng, req.EndLat, req.EndLng, req.VehicleType)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("❌ Distance service failed:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch ride details"})
 		return
 	}
+	fmt.Println("✅ Distance calculated:", distance, "km", duration, "mins", "Fare:", fare)
 
 	driverColl := db.GetCollection("drivers")
 
@@ -69,20 +71,25 @@ func RequestRide(c *gin.Context) {
 		}
 
 		var drivers []models.Driver
+		fmt.Println("🔍 Searching drivers with radius:", searchRadius)
 		cursor, err := driverColl.Find(c, filter)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find drivers"})
 			return
 		}
+		fmt.Println("✅ Mongo query executed, checking cursor...")
+
 		defer cursor.Close(c)
 
 		for cursor.Next(c) {
 			var driver models.Driver
 			if err := cursor.Decode(&driver); err != nil {
+				fmt.Println("⚠️ Decode driver failed:", err)
 				continue
 			}
 			drivers = append(drivers, driver)
 		}
+		fmt.Printf("🔍 Found %d drivers in %dm radius\n", len(drivers), searchRadius)
 
 		if len(drivers) > 0 {
 			bestDriver = drivers[0]
@@ -102,6 +109,7 @@ func RequestRide(c *gin.Context) {
 	}
 
 	if bestDriver.ID.IsZero() {
+		fmt.Println("❌ No drivers found")
 		c.JSON(http.StatusNotFound, gin.H{"error": "No available drivers found"})
 		return
 	}
@@ -133,11 +141,13 @@ func RequestRide(c *gin.Context) {
 	rideColl := db.GetCollection("rides")
 	result, err := rideColl.InsertOne(c, ride)
 	if err != nil {
+		fmt.Println("❌ Failed to insert ride:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to request ride"})
 		return
 	}
 
 	ride.ID = result.InsertedID.(primitive.ObjectID)
+	fmt.Println("✅ Ride inserted with ID:", ride.ID.Hex())
 
 	// Notify the driver via WebSocket
 	websockets.WS_HUB.Broadcast <- websockets.Notification{
@@ -446,7 +456,6 @@ func SubmitFeedback(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
 		return
 	}
-    
 
 	// Create the feedback document
 	feedback := models.Feedback{
@@ -465,15 +474,14 @@ func SubmitFeedback(c *gin.Context) {
 		return
 	}
 
-    existingFeedback := feedbackColl.FindOne(c, bson.M{
-        "ride_id": objID,
-        "user_id": userObjID,
-    })
-    if existingFeedback.Err() == nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "You have already submitted feedback for this ride"})
-        return
-    }
-    
+	existingFeedback := feedbackColl.FindOne(c, bson.M{
+		"ride_id": objID,
+		"user_id": userObjID,
+	})
+	if existingFeedback.Err() == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You have already submitted feedback for this ride"})
+		return
+	}
 
 	// Respond with success message
 	c.JSON(http.StatusOK, gin.H{"message": "Feedback submitted"})
@@ -801,7 +809,7 @@ func ConfirmPayment(c *gin.Context) {
 	// Send WebSocket notifications to the rider and driver about the payment confirmation
 	websockets.WS_HUB.Broadcast <- websockets.Notification{
 		Type:   "payment_confirmed",
-		UserID: ride.RiderID.Hex(), 
+		UserID: ride.RiderID.Hex(),
 		Payload: gin.H{
 			"ride_id":  rideObjID.Hex(),
 			"amount":   ride.Fare,
@@ -811,7 +819,7 @@ func ConfirmPayment(c *gin.Context) {
 
 	websockets.WS_HUB.Broadcast <- websockets.Notification{
 		Type:   "payment_confirmed",
-		UserID: driverUser.ID.Hex(), 
+		UserID: driverUser.ID.Hex(),
 		Payload: gin.H{
 			"ride_id":  rideObjID.Hex(),
 			"amount":   ride.Fare,

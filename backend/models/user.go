@@ -40,7 +40,7 @@ type Ride struct {
 	Distance        float64            `bson:"distance"`  // In km (from DistanceMatrix.ai Maps)
 	Fare            float64            `bson:"fare"`      // Final calculated fare
 	VehicleType     string             `bson:"vehicle_type" validate:"required,oneof=two_wheeler three_wheeler car premium_car"`
-	Status          string             `bson:"status" validate:"oneof=requested ongoing completed cancelled"`
+	Status          string             `bson:"status" validate:"oneof=requested pending ongoing completed cancelled"`
 	OTP             string             `bson:"otp"` // 6-digit code
 	SurgeMultiplier float64            `bson:"surge" default:"1.0"`
 	CancelledBy     string             `bson:"cancelled_by" validate:"omitempty,oneof=rider driver"`
