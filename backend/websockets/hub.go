@@ -11,10 +11,10 @@ import (
 
 // WebSocket Upgrader (allows cross-origin requests)
 var Upgrader = websocket.Upgrader{
-	
+
 	CheckOrigin: func(r *http.Request) bool {
 		// Allow any origin (CORS for development purposes)
-		
+
 		return true // Allow any origin
 	},
 }
@@ -37,9 +37,9 @@ type Hub struct {
 
 // Notification struct for messages
 type Notification struct {
-    Type    string      `json:"type"` // ride_request, ride_response, payment_request
-    UserID  string      `json:"user_id"`
-    Payload interface{} `json:"payload"`
+	Type    string      `json:"type"` // ride_request, ride_response, payment_request
+	UserID  string      `json:"user_id"`
+	Payload interface{} `json:"payload"`
 }
 
 // Global WebSocket hub instance
@@ -58,9 +58,12 @@ func NewHub() *Hub {
 // Run the WebSocket Hub
 func (h *Hub) Run() {
 	for {
+
 		select {
 		case client := <-h.Register:
 			h.Mu.Lock()
+			log.Printf("🚗 New WebSocket: %s (%s)", client.UserID, client.Role)
+
 			h.Clients[client] = true
 			h.Mu.Unlock()
 			log.Printf("Client %s connected", client.UserID)
@@ -77,12 +80,13 @@ func (h *Hub) Run() {
 		case notification := <-h.Broadcast:
 			h.Mu.Lock()
 			for client := range h.Clients {
+				log.Printf("📡 Client in Hub: %s | Broadcast target: %s", client.UserID, notification.UserID)
 				if client.UserID == notification.UserID {
 					err := client.Conn.WriteJSON(gin.H{
 						"type":    notification.Type,
 						"payload": notification.Payload,
 					})
-					
+
 					if err != nil {
 						log.Println("Error sending message:", err)
 						client.Conn.Close()
@@ -94,6 +98,3 @@ func (h *Hub) Run() {
 		}
 	}
 }
-
-
-

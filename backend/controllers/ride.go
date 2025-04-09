@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"strings"
 
 	//"crypto/rand"
@@ -150,9 +151,12 @@ func RequestRide(c *gin.Context) {
 	fmt.Println("✅ Ride inserted with ID:", ride.ID.Hex())
 
 	// Notify the driver via WebSocket
+	log.Printf("📤 Sending ride request to driver: %s", bestDriver.UserID.Hex())
+
 	websockets.WS_HUB.Broadcast <- websockets.Notification{
 		Type:   "ride_request",
 		UserID: bestDriver.UserID.Hex(),
+
 		Payload: gin.H{
 			"ride_id":  ride.ID.Hex(),
 			"rider_id": ride.RiderID.Hex(),
@@ -266,9 +270,12 @@ func VerifyOTP(c *gin.Context) {
 }
 
 func HandleDriverResponse(c *gin.Context) {
+
+	rideIdParam := c.Param("ride_id")
+
 	var req struct {
-		RideID string `json:"ride_id" binding:"required"`
-		Accept bool   `json:"accept"`
+		// RideID string `json:"ride_id" binding:"required"`
+		Accept bool `json:"accept"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -276,7 +283,7 @@ func HandleDriverResponse(c *gin.Context) {
 		return
 	}
 
-	rideID, _ := primitive.ObjectIDFromHex(req.RideID)
+	rideID, _ := primitive.ObjectIDFromHex(rideIdParam)
 	rideColl := db.GetCollection("rides")
 
 	update := bson.M{

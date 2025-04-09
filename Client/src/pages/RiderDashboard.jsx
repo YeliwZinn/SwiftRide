@@ -102,6 +102,47 @@ const RiderDashboard = () => {
     getRoute();
   }, [selectedLocation]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+
+    ws.onopen = () => {
+      console.log("✅ WebSocket connected");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        console.log("📨 WebSocket message:", message);
+
+        if (message.type === "ride_response") {
+          const { status, driver_id, ride_id } = message.payload;
+          alert(`🚕 Ride ${status} by driver ${driver_id}`);
+          // Optional: Update rideInfo or show a banner/card
+          setRideInfo((prev) => ({
+            ...prev,
+            status,
+            driver_id,
+          }));
+        }
+      } catch (error) {
+        console.error("Invalid WebSocket message:", event.data);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("❌ WebSocket error:", err);
+    };
+
+    ws.onclose = () => {
+      console.log("🔌 WebSocket disconnected");
+    };
+
+    return () => ws.close();
+  }, []);
+
   const handleRequestRide = async () => {
     if (!currentPosition || !selectedLocation)
       return alert("Select a destination first");
@@ -153,6 +194,15 @@ const RiderDashboard = () => {
           <p>🛣️ Distance: {rideInfo.distance} km</p>
           <p>⏱️ Duration: {rideInfo.duration} mins</p>
           <p>💰 Fare: ₹{rideInfo.fare}</p>
+        </div>
+      )}
+
+      {rideInfo?.status && (
+        <div className="mt-4 p-4 border rounded bg-green-50 shadow-sm space-y-2">
+          <p className="text-green-700 font-medium">
+            🚕 Ride has been <strong>{rideInfo.status}</strong> by Driver{" "}
+            {rideInfo.driver_id}
+          </p>
         </div>
       )}
     </div>

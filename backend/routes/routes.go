@@ -1,9 +1,8 @@
 package routes
 
 import (
-	"fmt"
+	"log"
 	"net/http"
-	"strings"
 	"uber-clone/auth"
 	"uber-clone/controllers"
 	"uber-clone/middleware"
@@ -27,28 +26,23 @@ func SetupRouter(hub *websockets.Hub) *gin.Engine {
 
 	// WebSocket endpoint
 	router.GET("/ws", func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			return
-		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		tokenString := c.Query("token") // Changed from header to query param
 		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
+			// Abort before attempting upgrade
+			c.Writer.WriteHeader(http.StatusUnauthorized)
+			c.Writer.Write([]byte("Token required"))
 			return
 		}
 
 		claims, err := auth.ValidateToken(tokenString)
 		if err != nil {
-			fmt.Println("JWT validation error:", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
 
 		conn, err := websockets.Upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket upgrade failed"})
+			log.Println("WebSocket upgrade error:", err)
 			return
 		}
 
@@ -58,14 +52,30 @@ func SetupRouter(hub *websockets.Hub) *gin.Engine {
 			Role:   claims.Role,
 		}
 
-		hub.Register <- client
-		defer func() { hub.Unregister <- client }()
+		websockets.WS_HUB.Register <- client
+		defer func() {
+			websockets.WS_HUB.Unregister <- client
+		}()
 
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			mt, msg, err := conn.ReadMessage()
+			if err != nil {
+				log.Println("WebSocket read error:", err)
 				break
 			}
+
+			log.Println("Message received:", string(msg))
+
+			// You can respond back to client to confirm it's alive
+			if string(msg) == `{"type":"ping"}` {
+				err = conn.WriteMessage(mt, []byte(`{"type":"pong"}`))
+				if err != nil {
+					log.Println("Write error:", err)
+					break
+				}
+			}
 		}
+
 	})
 
 	// Auth routes

@@ -30,17 +30,24 @@ function UserLogin({ setUser }) {
       };
 
       const response = await axios.post("http://localhost:8080/login", payload);
-      const { token } = response.data;
+      const { token, role } = response.data;
 
       localStorage.setItem("token", token);
+      localStorage.setItem("role", role);
 
       // Optionally update user state if you have one
       if (setUser) {
-        setUser({ token });
+        setUser({ token, role });
       }
+      console.log(role);
 
-      // Redirect to dashboard or home page
-      window.location.href = "/rider-dashboard";
+      if (role === "rider") {
+        window.location.href = "/rider-dashboard";
+      } else if (role === "driver") {
+        window.location.href = "/driver-dashboard";
+      } else {
+        setError("Unknown role. Cannot redirect.");
+      }
     } catch (err) {
       setError(
         err.response?.data?.error || "An error occurred. Please try again."
@@ -108,7 +115,10 @@ function UserLogin({ setUser }) {
           </button>
         </form>
       </div>
-      <Link to="/signup" className="mt-10 text-xl font-bold text-teal-600 hover:underline">
+      <Link
+        to="/signup"
+        className="mt-10 text-xl font-bold text-teal-600 hover:underline"
+      >
         Signup
       </Link>
     </div>

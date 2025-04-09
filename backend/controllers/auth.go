@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	
 	"log"
 	"net/http"
 	"time"
@@ -169,7 +170,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	c.JSON(http.StatusOK, gin.H{"token": token, "role": user.Role})
 }
 
 func Profile(c *gin.Context) {
