@@ -177,6 +177,88 @@ func RequestRide(c *gin.Context) {
 	})
 }
 
+func HandleDriverResponse(c *gin.Context) {
+
+	rideIdParam := c.Param("ride_id")
+
+	var req struct {
+		// RideID string `json:"ride_id" binding:"required"`
+		Accept bool `json:"accept"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	rideID, _ := primitive.ObjectIDFromHex(rideIdParam)
+	rideColl := db.GetCollection("rides")
+	userColl := db.GetCollection("users")
+	driverColl := db.GetCollection("drivers")
+
+	update := bson.M{
+		"$set": bson.M{
+			"status":      "accepted",
+			"accepted_at": time.Now(),
+		},
+	}
+	if !req.Accept {
+		update = bson.M{
+			"$set": bson.M{
+				"status":      "rejected",
+				"rejected_at": time.Now(),
+			},
+		}
+	}
+
+	_, err := rideColl.UpdateByID(c, rideID, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ride status"})
+		return
+	}
+
+	// Fetch the updated ride data
+	var ride models.Ride
+	err = rideColl.FindOne(c, bson.M{"_id": rideID}).Decode(&ride)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Ride not found"})
+		return
+	}
+
+	// Step 1: Get the driver document
+	var driver models.Driver
+	err = driverColl.FindOne(c, bson.M{"_id": ride.DriverID}).Decode(&driver)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Driver not found"})
+		return
+	}
+
+	// Step 2: Get the user linked to that driver (where the name is)
+	var user models.User
+	err = userColl.FindOne(c, bson.M{"_id": driver.UserID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Driver user not found"})
+		return
+	}
+
+	// Now you can use user.Name or whatever
+	fmt.Println("Driver Name:", user.Name)
+
+	// Notify the rider via WebSocket
+	websockets.WS_HUB.Broadcast <- websockets.Notification{
+		Type:   "ride_response",
+		UserID: ride.RiderID.Hex(),
+		Payload: gin.H{
+			"status":      update["$set"].(bson.M)["status"], // Either "accepted" or "rejected"
+			"driver_id":   ride.DriverID.Hex(),
+			"driver_name": user.Name,
+			"ride_id":     rideID.Hex(),
+		},
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Response recorded"})
+}
+
 // generateOTP generates a six-digit random OTP
 func generateOTP() string {
 	rand.Seed(time.Now().UnixNano())               // Seed the random number generator
@@ -267,66 +349,6 @@ func VerifyOTP(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "OTP verified, ride is now ongoing"})
-}
-
-func HandleDriverResponse(c *gin.Context) {
-
-	rideIdParam := c.Param("ride_id")
-
-	var req struct {
-		// RideID string `json:"ride_id" binding:"required"`
-		Accept bool `json:"accept"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	rideID, _ := primitive.ObjectIDFromHex(rideIdParam)
-	rideColl := db.GetCollection("rides")
-
-	update := bson.M{
-		"$set": bson.M{
-			"status":      "accepted",
-			"accepted_at": time.Now(),
-		},
-	}
-	if !req.Accept {
-		update = bson.M{
-			"$set": bson.M{
-				"status":      "rejected",
-				"rejected_at": time.Now(),
-			},
-		}
-	}
-
-	_, err := rideColl.UpdateByID(c, rideID, update)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ride status"})
-		return
-	}
-
-	// Fetch the updated ride data
-	var ride models.Ride
-	err = rideColl.FindOne(c, bson.M{"_id": rideID}).Decode(&ride)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Ride not found"})
-		return
-	}
-
-	// Notify the rider via WebSocket
-	websockets.WS_HUB.Broadcast <- websockets.Notification{
-		Type:   "ride_response",
-		UserID: ride.RiderID.Hex(),
-		Payload: gin.H{
-			"status":    update["$set"].(bson.M)["status"], // Either "accepted" or "rejected"
-			"driver_id": ride.DriverID.Hex(),
-			"ride_id":   rideID.Hex(),
-		},
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Response recorded"})
 }
 
 func CancelRide(c *gin.Context) {

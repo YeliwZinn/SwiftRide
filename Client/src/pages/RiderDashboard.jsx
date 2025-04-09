@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import axios from "axios";
+import DestinationSelector from "./DestinationSelector";
 
 mapboxgl.accessToken =
   "pk.eyJ1Ijoic3VieHViZXIiLCJhIjoiY204eXIxNGI5MDNvaTJsczgyYXJtenZyOCJ9.ba7NK0E5Ce_N3hHyFRzJTg";
@@ -11,8 +12,30 @@ const RiderDashboard = () => {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [rideInfo, setRideInfo] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
 
-  // Get user's location
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("riderToken");
+      if (!token) return;
+
+      try {
+        const res = await axios.get("http://localhost:8080/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setProfileData(res.data);
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -26,7 +49,6 @@ const RiderDashboard = () => {
     );
   }, []);
 
-  // Initialize map + handle clicks
   useEffect(() => {
     if (!currentPosition) return;
 
@@ -39,7 +61,7 @@ const RiderDashboard = () => {
 
     mapRef.current = map;
 
-    const currentMarker = new mapboxgl.Marker({ color: "blue" })
+    new mapboxgl.Marker({ color: "blue" })
       .setLngLat(currentPosition)
       .addTo(map);
 
@@ -51,7 +73,6 @@ const RiderDashboard = () => {
     return () => map.remove();
   }, [currentPosition]);
 
-  // Draw route when destination selected
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !currentPosition || !selectedLocation) return;
@@ -59,13 +80,11 @@ const RiderDashboard = () => {
     const origin = currentPosition;
     const dest = [selectedLocation.longitude, selectedLocation.latitude];
 
-    // Clear previous route
     if (map.getSource("route")) {
       map.removeLayer("route");
       map.removeSource("route");
     }
 
-    // Add destination marker
     new mapboxgl.Marker({ color: "red" }).setLngLat(dest).addTo(map);
 
     const getRoute = async () => {
@@ -103,7 +122,7 @@ const RiderDashboard = () => {
   }, [selectedLocation]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("riderToken");
     if (!token) return;
 
     const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
@@ -118,13 +137,13 @@ const RiderDashboard = () => {
         console.log("📨 WebSocket message:", message);
 
         if (message.type === "ride_response") {
-          const { status, driver_id, ride_id } = message.payload;
-          alert(`🚕 Ride ${status} by driver ${driver_id}`);
-          // Optional: Update rideInfo or show a banner/card
+          const { status, driver_id, driver_name, ride_id } = message.payload;
+          alert(`🚕 Ride ${status} by driver ${driver_name}`);
           setRideInfo((prev) => ({
             ...prev,
             status,
             driver_id,
+            driver_name,
           }));
         }
       } catch (error) {
@@ -148,7 +167,7 @@ const RiderDashboard = () => {
       return alert("Select a destination first");
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("riderToken");
       const res = await axios.post(
         "http://localhost:8080/rides/",
         {
@@ -156,7 +175,7 @@ const RiderDashboard = () => {
           start_lng: currentPosition[0],
           end_lat: selectedLocation.latitude,
           end_lng: selectedLocation.longitude,
-          vehicle_type: "car", // Can add dropdown later
+          vehicle_type: "car",
         },
         {
           headers: {
@@ -173,38 +192,91 @@ const RiderDashboard = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("riderToken");
+    window.location.href = "/";
+  };
+
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Rider Dashboard</h1>
+    <div className="min-h-screen bg-gray-100">
+      {/* Navbar */}
+      <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
+        <a href="/" className="text-black text-2xl font-semibold">
+          SwiftRide
+        </a>
 
-      <div ref={mapContainerRef} className="h-[500px] w-full rounded shadow" />
+        {profileData && (
+          <div
+            className="relative flex items-center gap-4"
+            onMouseEnter={() => setShowProfile(true)}
+            onMouseLeave={() => setShowProfile(false)}
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center cursor-pointer">
+              {profileData.name[0]?.toUpperCase()}
+            </div>
 
-      {selectedLocation && (
-        <button
-          onClick={handleRequestRide}
-          className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-        >
-          Request Ride
-        </button>
-      )}
+            {showProfile && (
+              <div className="absolute right-16 mt-2 w-60 bg-white border shadow-lg rounded p-4 space-y-1 z-10">
+                <p className="text-sm font-semibold text-gray-700">
+                  {profileData.name}
+                </p>
+                <p className="text-sm text-gray-600">{profileData.email}</p>
+                <p className="text-sm text-gray-600">{profileData.phone}</p>
+              </div>
+            )}
 
-      {rideInfo && (
-        <div className="mt-4 p-4 border rounded bg-gray-50 shadow-sm space-y-2">
-          <h2 className="text-lg font-medium">Ride Info</h2>
-          <p>🛣️ Distance: {rideInfo.distance} km</p>
-          <p>⏱️ Duration: {rideInfo.duration} mins</p>
-          <p>💰 Fare: ₹{rideInfo.fare}</p>
+            <button
+              onClick={handleLogout}
+              className="text-sm bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </nav>
+
+      {/* Dashboard */}
+      <div className="grid grid-cols-5 gap-4 p-6">
+        {/* Left panel (2/5) */}
+        <div className="col-span-2 bg-white rounded shadow p-4 space-y-4">
+          <DestinationSelector onSelect={setSelectedLocation} />
+
+          {selectedLocation && (
+            <button
+              onClick={handleRequestRide}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded shadow mt-4"
+            >
+              Request Ride
+            </button>
+          )}
+
+          {rideInfo && (
+            <div className="mt-4 p-4 border rounded bg-gray-50 shadow-sm space-y-2">
+              <h2 className="text-lg font-medium">Ride Info</h2>
+              <p>🛣️ Distance: {rideInfo.distance} km</p>
+              <p>⏱️ Duration: {rideInfo.duration} mins</p>
+              <p>💰 Fare: ₹{rideInfo.fare}</p>
+            </div>
+          )}
+
+          {rideInfo?.status && (
+            <div className="mt-4 p-4 border rounded bg-green-50 shadow-sm space-y-2">
+              <p className="text-green-700 font-medium">
+                🚕 Ride has been <strong>{rideInfo.status}</strong> by Driver{" "}
+                {rideInfo.driver_name}
+              </p>
+            </div>
+          )}
         </div>
-      )}
 
-      {rideInfo?.status && (
-        <div className="mt-4 p-4 border rounded bg-green-50 shadow-sm space-y-2">
-          <p className="text-green-700 font-medium">
-            🚕 Ride has been <strong>{rideInfo.status}</strong> by Driver{" "}
-            {rideInfo.driver_id}
-          </p>
+        {/* Map panel (3/5) */}
+        <div className="col-span-3">
+          <div
+            ref={mapContainerRef}
+            className="h-[600px] w-full rounded shadow"
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 };

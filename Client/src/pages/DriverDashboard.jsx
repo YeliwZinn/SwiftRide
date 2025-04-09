@@ -6,7 +6,7 @@ function DriverDashboard() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("driverToken");
     if (!token) return;
 
     const ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
@@ -57,7 +57,7 @@ function DriverDashboard() {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("driverToken")}`,
           },
         }
       );
@@ -84,7 +84,7 @@ function DriverDashboard() {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("driverToken")}`,
           },
         }
       );
